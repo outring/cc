@@ -58,7 +58,8 @@ P1='Queued jobs retry once but HTTP calls retry three times — the two retry po
 P2='Production incident: HTTP calls retry three times but queued jobs retry once, and we are losing jobs. This needs careful cross-file reasoning — the root cause spans several modules. Find it and fix it properly. Delegate the investigation and the fix to a subagent using the Agent tool rather than doing it yourself.'
 P3='Use a workflow: for each file under src/, have an agent check whether it imports retryPolicy from src/http/client.ts, then have one agent summarise the findings. Write and run the workflow script.'
 PROMPTS="${PROMPTS:-1 2}"; [ "${PROMPT3:-0}" = "1" ] && PROMPTS="$PROMPTS 3"
-# A nested session must not inherit this session's identity, bridge sockets or effort.
+# A nested session must not inherit this session's identity, bridge sockets, effort or model pins;
+# the gate always runs in deny mode.
 NOCLAUDE="$(env | grep -oE '^(CLAUDECODE|CLAUDE_CODE_[A-Z_]+|CLAUDE_PID|CLAUDE_EFFORT)=' | sed 's/=$//; s/^/-u /' | tr '\n' ' ')"
 
 for arm in $ARMS; do
@@ -68,12 +69,13 @@ for arm in $ARMS; do
       out="$WORK/out/$MODEL-$arm-p$k-$n.jsonl"
       [ -s "$out" ] && { echo "skip $arm-p$k-$n"; continue; }
       rm -rf "$WORK/run"; cp -R "$WORK/repo" "$WORK/run"
-      ( cd "$WORK/run" && env $NOCLAUDE timeout 600 claude -p "$PROMPT" \
+      ( cd "$WORK/run" && env $NOCLAUDE SUBAGENT_COST_GUARD_MODE=deny timeout 600 claude -p "$PROMPT" \
           --model "$MODEL" --output-format stream-json --verbose --include-hook-events \
           --strict-mcp-config --setting-sources project --plugin-dir "$WORK/plugin-$arm" \
           --permission-mode bypassPermissions --no-session-persistence \
-          --max-budget-usd 0.40 ) > "$out" 2>"$out.err"
-      echo "done $arm-p$k-$n"
+          --max-budget-usd 0.40 ) > "$out.part" 2>"$out.err"
+      if grep -q '"type":"result"' "$out.part"; then mv "$out.part" "$out"; echo "done $arm-p$k-$n"
+      else echo "FAIL $arm-p$k-$n — no result record, see $out.err"; fi
     done
   done
 done

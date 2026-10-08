@@ -60,6 +60,10 @@ done
 # arm a carries the same bytes the hook injects, through the CLAUDE.md wrapper instead
 [ -d "$WORK/repo-a" ] && cp "$PLUGIN/hooks/session-context.md" "$WORK/repo-a/CLAUDE.md"
 
+# A nested session must not inherit this session's identity, bridge sockets, effort or model pins;
+# the gate always runs in deny mode.
+NOCLAUDE="$(env | grep -oE '^(CLAUDECODE|CLAUDE_CODE_[A-Z_]+|CLAUDE_PID|CLAUDE_EFFORT)=' | sed 's/=$//; s/^/-u /' | tr '\n' ' ')"
+
 PROMPT='Sweep this repo and list every file path that mentions retryPolicy. Delegate the sweep to a subagent using the Agent tool rather than searching yourself.'
 
 for arm in $ARMS; do
@@ -67,12 +71,13 @@ for arm in $ARMS; do
   for n in $(seq 1 "$REPS"); do
     out="$WORK/out/$MODEL-$arm-$n.jsonl"
     [ -s "$out" ] && { echo "skip $arm-$n"; continue; }
-    ( cd "$WORK/repo-$arm" && timeout 600 claude -p "$PROMPT" \
+    ( cd "$WORK/repo-$arm" && env $NOCLAUDE SUBAGENT_COST_GUARD_MODE=deny timeout 600 claude -p "$PROMPT" \
         --model "$MODEL" --output-format stream-json --verbose --include-hook-events \
         --strict-mcp-config --setting-sources project --plugin-dir "$PDIR" \
         --permission-mode bypassPermissions --no-session-persistence \
-        --max-budget-usd 0.60 ) > "$out" 2>"$out.err"
-    echo "done $arm-$n"
+        --max-budget-usd 0.60 ) > "$out.part" 2>"$out.err"
+    if grep -q '"type":"result"' "$out.part"; then mv "$out.part" "$out"; echo "done $arm-$n"
+    else echo "FAIL $arm-$n — no result record, see $out.err"; fi
   done
 done
 

@@ -90,5 +90,29 @@ check 'denials counted, errors only, in-window' 'denials observed *: 2 '
 check 'denial split by kind'                  'Agent 2, Workflow 0'
 check 'denial text on a Bash result ignored'  'unmatched denial text *: 2'
 
+# Every denial shape the hook emits, and option literals in any spacing or quoting.
+mkdir -p "$WORK/p2/proj"
+tu() {  # tu <id> <name> <input-json>
+  jq -nc --arg ts "$IN" --arg id "$1" --arg n "$2" --argjson i "$3" \
+    '{type:"assistant",timestamp:$ts,message:{role:"assistant",content:[{type:"tool_use",id:$id,name:$n,input:$i}]}}'
+}
+deny_wf() {  # deny_wf <id>
+  jq -nc --arg ts "$IN" --arg id "$1" \
+    '{type:"user",timestamp:$ts,message:{role:"user",content:[{type:"tool_result",tool_use_id:$id,is_error:true,content:"subagent-cost-guard: this workflow script calls agent() but sets no `effort` anywhere."}]}}'
+}
+{
+  tu tINH Agent '{"subagent_type":"Explore","model":"inherit"}'
+  denial "$IN" true tINH
+  tu tWFE Workflow '{"script":"await agent('"'go'"',{model:'"'sonnet'"'})"}'
+  deny_wf tWFE
+  tu tWFQ Workflow '{"script":"await agent(\"a\",{model: \"opus\", effort: \"high\"}); await agent(\"b\",{model : '"'haiku'"', effort:'"'low'"'})"}'
+} > "$WORK/p2/proj/session.jsonl"
+OUTPUT="$(CLAUDE_PROJECTS="$WORK/p2" bash "$SCRIPT" "$SINCE" "$UNTIL" 2>&1)"
+
+check 'model inherit and effort-only denials counted' 'Agent 1, Workflow 1'
+check 'double-quoted model counted'           ' 1  model:opus'
+check 'spaced model counted'                  ' 1  model:haiku'
+check 'double-quoted effort counted'          ' 1  effort:high'
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -144,6 +144,12 @@ assert_reason 'Workflow model inherit split over lines' "$(wj "$W_INHERIT_ML" "$
 assert_reason 'Workflow neither, session opus, names both' "$(wj "$W_NONE" "$FX/opus.jsonl")" 'model.*effort|effort.*model'
 assert_reason 'Workflow neither, session sonnet, effort only' "$(wj "$W_NONE" "$FX/sonnet.jsonl")" 'effort'
 assert_no_reason 'Workflow neither, session sonnet, no model blame' "$(wj "$W_NONE" "$FX/sonnet.jsonl")" 'sets no `model`'
+W_SPACED_CALL="await agent ('go')"
+W_SPACED_OPTS="await agent('go',{model : 'haiku', effort : 'low'})"
+W_SPACED_INHERIT="await agent('go',{model : 'inherit', effort:'low'})"
+assert        'Workflow agent ( spaced call is gated'   deny "$(wj "$W_SPACED_CALL" "$FX/opus.jsonl")"
+assert        'Workflow model : and effort : spaced'    noop "$(wj "$W_SPACED_OPTS" "$FX/opus.jsonl")"
+assert_reason 'Workflow model : inherit spaced'         "$(wj "$W_SPACED_INHERIT" "$FX/opus.jsonl")" 'model'
 
 # --- SessionStart context hook ---
 CTX="$ROOT/hooks/session-start-context.sh"

@@ -7,7 +7,7 @@ UNTIL_EPOCH="${2:-9999999999}"   # default: no upper bound
 cd "${CLAUDE_PROJECTS:-$HOME/.claude/projects}" || exit 1
 
 python3 - "$SINCE_EPOCH" "$UNTIL_EPOCH" <<'PY'
-import json, glob, os, sys, collections, datetime
+import json, glob, os, re, sys, collections, datetime
 
 since, until = float(sys.argv[1]), float(sys.argv[2])
 pairs, models, wf = collections.Counter(), collections.Counter(), collections.Counter()
@@ -25,6 +25,13 @@ denial_hits = {}     # tool_use_id -> result timestamp
 GATEABLE = {'Explore', 'general-purpose', 'Plan', 'claude', '(none)'}
 DENIAL_MARKS = ('this Agent call sets no',
                 'this workflow script calls agent() but sets no')
+# The hook's own workflow checks: whitespace allowed, model 'inherit' is an omission.
+WF_AGENT = re.compile(r'agent\s*\(')
+WF_MODEL = re.compile(r'model\s*:')
+WF_INHERIT = re.compile(r'''model\s*:\s*['"]inherit['"]''')
+WF_EFFORT = re.compile(r'effort\s*:')
+WF_MODEL_LIT = re.compile(r'''model\s*:\s*['"](haiku|sonnet|opus|fable)['"]''')
+WF_EFFORT_LIT = re.compile(r'''effort\s*:\s*['"](low|medium|high|xhigh|max)['"]''')
 
 
 def when(rec):
@@ -84,7 +91,7 @@ for p in glob.glob('*/*.jsonl'):
                 i = blk.get('input') or {}
                 if blk.get('name') == 'Agent':
                     m = i.get('model') or '(unset)'
-                    if m == '(unset)' and i.get('subagent_type', '(none)') in GATEABLE:
+                    if m in ('(unset)', 'inherit') and i.get('subagent_type', '(none)') in GATEABLE:
                         gate_worthy[blk.get('id')] = ('Agent', t)
                     if not in_window:
                         continue
@@ -92,14 +99,15 @@ for p in glob.glob('*/*.jsonl'):
                     models[m] += 1
                 elif blk.get('name') == 'Workflow':
                     s = i.get('script') or ''
-                    if 'agent(' in s and 'model:' not in s:
+                    if WF_AGENT.search(s) and not (WF_MODEL.search(WF_INHERIT.sub('', s))
+                                                   and WF_EFFORT.search(s)):
                         gate_worthy[blk.get('id')] = ('Workflow', t)
                     if not in_window:
                         continue
-                    for tier in ('haiku', 'sonnet', 'opus', 'fable'):
-                        wf['model:' + tier] += s.count("model: '%s'" % tier) + s.count("model:'%s'" % tier)
-                    for eff in ('low', 'medium', 'high', 'xhigh', 'max'):
-                        wf['effort:' + eff] += s.count("effort: '%s'" % eff) + s.count("effort:'%s'" % eff)
+                    for tier in WF_MODEL_LIT.findall(s):
+                        wf['model:' + tier] += 1
+                    for eff in WF_EFFORT_LIT.findall(s):
+                        wf['effort:' + eff] += 1
 
 total = sum(pairs.values())
 denials = collections.Counter(

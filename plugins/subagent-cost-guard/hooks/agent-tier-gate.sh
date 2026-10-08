@@ -97,15 +97,16 @@ case "$tool" in
   Workflow)
     script="$(printf '%s' "$payload" | jq -r '.tool_input.script // ""' 2>/dev/null)"
     [ -n "$script" ] || noop                                   # scriptPath / name resumption
-    printf '%s' "$script" | grep -q 'agent(' || noop
+    flat="$(printf '%s' "$script" | tr '\n\r\t' '   ')"   # an option split over lines still counts
+    printf '%s' "$flat" | grep -qE 'agent[[:space:]]*\(' || noop
     # Ceiling: one `model:` (or `effort:`) anywhere clears that check for the whole script, so
     # a 5-stage workflow that tiers one stage passes. Deliberate — counting agent( against the
     # options would false-deny on comments, helper functions and strings, and a false deny has
     # no remedy but switching the gate off. This catches zero tiering, not partial.
     missing=""
-    printf '%s' "$script" | tr '\n\r\t' '   ' | sed -E "s/model:[[:space:]]*['\"]inherit['\"]//g" \
-      | grep -q 'model:' || [ "$cheap" = 1 ] || missing='`model`'   # model: 'inherit', on any line split, is an omission
-    printf '%s' "$script" | grep -q 'effort:' || missing="${missing:+$missing and }\`effort\`"
+    printf '%s' "$flat" | sed -E "s/model[[:space:]]*:[[:space:]]*['\"]inherit['\"]//g" \
+      | grep -qE 'model[[:space:]]*:' || [ "$cheap" = 1 ] || missing='`model`'   # model: 'inherit' is an omission
+    printf '%s' "$flat" | grep -qE 'effort[[:space:]]*:' || missing="${missing:+$missing and }\`effort\`"
     [ -n "$missing" ] || noop
     stop "subagent-cost-guard: this workflow script calls agent() but sets no ${missing} anywhere. Without \`model\` every stage ${inherits}; without \`effort\` every stage inherits the session effort, and the Sonnet and Opus defaults differ. Give each agent() an explicit \`model\` and \`effort\` — ${TIERS}. ${SOFTEN}"
     ;;
