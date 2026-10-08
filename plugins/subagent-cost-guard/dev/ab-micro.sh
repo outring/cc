@@ -80,7 +80,9 @@ for arm in $ARMS; do
   done
 done
 
-python3 - "$WORK"/out/*.jsonl <<'PY'
+set -- "$WORK"/out/*.jsonl
+[ -e "$1" ] || { echo "no completed runs in $WORK/out"; exit 1; }
+python3 - "$@" <<'PY'
 import json, re, sys, os
 
 def blocks(path):

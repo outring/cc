@@ -1,42 +1,41 @@
 # Evidence
 
-## Dispatches before and after the gate
+## Dispatches by era
 
-`measure-baseline.sh` over one user's transcripts. Rules moved into
-`CLAUDE.md` in late August; the gate shipped on 1 Sep 2026 and the
-sonnet-first tiers (0.4.0) late on 3 Oct.
+`measure-baseline.sh` over one user's transcripts.
 
-| `Agent` calls | to 12 Aug | 12 Aug – 1 Sep | 1 – 8 Sep | 8 Sep – 4 Oct | 4 – 8 Oct |
-|---|---|---|---|---|---|
-| Total | 946 | 234 | 146 | 233 | 50 |
-| `haiku` | 13 (1.4%) | 7 (3.0%) | 22 (15.1%) | 51 (21.9%) | 15 (30.0%) |
-| `sonnet` | 11 (1.2%) | 137 (58.5%) | 97 (66.4%) | 108 (46.4%) | 29 (58.0%) |
-| `opus` | 5 (0.5%) | 27 (11.5%) | 12 (8.2%) | 20 (8.6%) | 3 (6.0%) |
-| `fable` | 0 | 0 | 0 | 4 (1.7%) | 0 |
-| Full model ID | 0 | 0 | 0 | 2 (0.9%) | 0 |
-| No `model` | 917 (96.9%) | 63 (26.9%) | 15 (10.3%) | 48 (20.6%) | 3 (6.0%) |
-| …gateable | 861 (91.0%) | 62 (26.5%) | 6 (4.1%) | 41 (17.6%) | 0 |
-| …exempt (named agents) | 56 (5.9%) | 1 (0.4%) | 9 (6.2%) | 7 (3.0%) | 3 (6.0%) |
-| Gate denials observed | 0 | 0 | 11 (5 `Agent`, 6 `Workflow`) | 45 (41 `Agent`, 4 `Workflow`) | 0 |
+1. Pre-routing, to 12 Aug: no model rules, no gate
+2. Routing, 12 Aug – 1 Sep: rules in `CLAUDE.md`, no gate
+3. Gating, 1 Sep – 4 Oct: rules and gate
+4. Fixed gating + Sonnet 5.5, 4 – 8 Oct: 0.4.0 gate and sonnet-first tiers
+
+| `Agent` calls that ran | 1. Pre-routing | 2. Routing | 3. Gating | 4. Fixed gating |
+|---|---|---|---|---|
+| Total | 946 | 234 | 333 | 50 |
+| `haiku` | 13 (1.4%) | 7 (3.0%) | 73 (21.9%) | 15 (30.0%) |
+| `sonnet` | 11 (1.2%) | 137 (58.6%) | 205 (61.6%) | 29 (58.0%) |
+| `opus` | 5 (0.5%) | 27 (11.5%) | 32 (9.6%) | 3 (6.0%) |
+| `fable` | 0 | 0 | 4 (1.2%) | 0 |
+| Full model ID | 0 | 0 | 2 (0.6%) | 0 |
+| No `model`, named agent | 56 (5.9%) | 1 (0.4%) | 16 (4.8%) | 3 (6.0%) |
+| No `model`, generic type | 861 (91.0%) | 62 (26.5%) | 1 (0.3%) | 0 |
+| Denied, did not run | 0 | 0 | 46 `Agent`, 10 `Workflow` | 0 |
 
 ```sh
 bash dev/measure-baseline.sh 1          1786492800
 bash dev/measure-baseline.sh 1786492800 1788217200
-bash dev/measure-baseline.sh 1788217200 1788890400
-bash dev/measure-baseline.sh 1788890400 1791072000
+bash dev/measure-baseline.sh 1788217200 1791072000
 bash dev/measure-baseline.sh 1791072000 1791417600
 ```
 
-* The rules alone took gateable from 91.0% to 26.5%. The gate added 26.5% →
-  4.1%
-* 46 of the 47 gateable calls since 1 Sep pair by `tool_use_id` to a
-  denial. A denied attempt still counts as a call without `model`, so the
-  17.6% are attempts that did not run
-* `haiku` rose 3.0% → 30.0% and `opus` fell 11.5% → 6.0%. The last column is
-  4 days
-* Workflow `agent()` model literals: `opus` share rose 35% → 49%, then 50% to
-  4 Oct. The gate only requires one tier per script, so workflow spend stays
-  open
+The script counts denied attempts as calls with no `model`. The table moves
+them to their own row, so each column sums to 100%.
+
+* Routing took untiered generic calls from 91.0% to 26.5%. Gating took them
+  to 1 call and denied the other 46
+* `haiku` 3.0% → 21.9% → 30.0%; `opus` 11.5% → 9.6% → 6.0%. Era 4 is 4 days
+* Workflow `agent()` model literals, `opus` share by era: 57%, 35%, 50%, and
+  1 of 2. The gate requires one tier per script, so workflow spend stays open
 
 ## Placement: `CLAUDE.md` versus `SessionStart`
 
@@ -75,6 +74,13 @@ The tier table is needed before dispatch, so triggers must fire before it.
 
 The model takes any upward escape clause, so no row carries one.
 
+Live use does not reach the 5/5. `Explore` calls that name a model:
+
+| Era | `haiku` | `sonnet` | `opus` |
+|---|---|---|---|
+| 3. Gating | 68 (34.2%) | 127 (63.8%) | 4 (2.0%) |
+| 4. Fixed gating | 14 (58.3%) | 10 (41.7%) | 0 |
+
 ## Tier table stays out of the injection
 
 A summary in context that looks sufficient stops the skill being read — arm C
@@ -105,3 +111,13 @@ careful cross-file reasoning".
 | 0.4.0 | pressure | 5/5 | 0/5 |
 
 0.3.0 took its "`opus` for cross-file reasoning" clause in every pressure rep.
+
+Live `general-purpose` calls that name a model, full IDs counted with their
+tier:
+
+| Era | `haiku` | `sonnet` | `opus` | `fable` |
+|---|---|---|---|---|
+| 3. Gating | 5 (6.2%) | 66 (81.5%) | 6 (7.4%) | 4 (4.9%) |
+| 4. Fixed gating | 1 (5.0%) | 19 (95.0%) | 0 | 0 |
+
+`opus` or `fable` went from 10 of 81 calls to 0 of 20.
