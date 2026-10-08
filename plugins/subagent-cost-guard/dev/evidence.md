@@ -4,25 +4,25 @@
 
 `measure-baseline.sh` over one user's transcripts.
 
-1. Pre-routing, to 12 Aug: no model rules, no gate
+1. Pre-routing, 1 Jun – 12 Aug: no model rules, no gate
 2. Routing, 12 Aug – 1 Sep: rules in `CLAUDE.md`, no gate
 3. Gating, 1 Sep – 4 Oct: rules and gate
 4. Fixed gating + Sonnet 5.5, 4 – 8 Oct: 0.4.0 gate and sonnet-first tiers
 
 | `Agent` calls that ran | 1. Pre-routing | 2. Routing | 3. Gating | 4. Fixed gating |
 |---|---|---|---|---|
-| Total | 946 | 234 | 333 | 50 |
+| Total | 898 | 234 | 333 | 50 |
 | `haiku` | 13 (1.4%) | 7 (3.0%) | 73 (21.9%) | 15 (30.0%) |
 | `sonnet` | 11 (1.2%) | 137 (58.6%) | 205 (61.6%) | 29 (58.0%) |
-| `opus` | 5 (0.5%) | 27 (11.5%) | 32 (9.6%) | 3 (6.0%) |
+| `opus` | 5 (0.6%) | 27 (11.5%) | 32 (9.6%) | 3 (6.0%) |
 | `fable` | 0 | 0 | 4 (1.2%) | 0 |
 | Full model ID | 0 | 0 | 2 (0.6%) | 0 |
-| No `model`, named agent | 56 (5.9%) | 1 (0.4%) | 16 (4.8%) | 3 (6.0%) |
-| No `model`, generic type | 861 (91.0%) | 62 (26.5%) | 1 (0.3%) | 0 |
+| No `model`, named agent | 49 (5.5%) | 1 (0.4%) | 16 (4.8%) | 3 (6.0%) |
+| No `model`, generic type | 820 (91.3%) | 62 (26.5%) | 1 (0.3%) | 0 |
 | Denied, did not run | 0 | 0 | 46 `Agent`, 10 `Workflow` | 0 |
 
 ```sh
-bash dev/measure-baseline.sh 1          1786492800
+bash dev/measure-baseline.sh 1780272000 1786492800
 bash dev/measure-baseline.sh 1786492800 1788217200
 bash dev/measure-baseline.sh 1788217200 1791072000
 bash dev/measure-baseline.sh 1791072000 1791417600
@@ -31,7 +31,7 @@ bash dev/measure-baseline.sh 1791072000 1791417600
 The script counts denied attempts as calls with no `model`. The table moves
 them to their own row, so each column sums to 100%.
 
-* Routing took untiered generic calls from 91.0% to 26.5%. Gating took them
+* Routing took untiered generic calls from 91.3% to 26.5%. Gating took them
   to 1 call and denied the other 46
 * `haiku` 3.0% → 21.9% → 30.0%; `opus` 11.5% → 9.6% → 6.0%. Era 4 is 4 days
 * Workflow `agent()` model literals, `opus` share by era: 57%, 35%, 50%, and
