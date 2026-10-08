@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  subagent-cost-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hook tests
+        run: bash plugins/subagent-cost-guard/dev/run_tests.sh
+      - name: Measurement tests
+        run: bash plugins/subagent-cost-guard/dev/test_measure.sh
