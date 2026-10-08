@@ -1,0 +1,28 @@
+{
+  "name": "subagent-cost-guard",
+  "version": "0.4.0",
+  "description": "Cuts subagent spend — an Agent or Workflow dispatch that would silently inherit opus or fable is blocked until it names its model tier and workflow effort, so grep sweeps stop billing at Opus rates",
+  "author": {
+    "name": "Vasya Aksyonov",
+    "url": "https://github.com/outring"
+  },
+  "homepage": "https://github.com/outring/cc",
+  "repository": "https://github.com/outring/cc",
+  "license": "MIT",
+  "keywords": [
+    "cost",
+    "subagents",
+    "orchestration",
+    "workflow",
+    "hooks",
+    "model-selection"
+  ],
+  "userConfig": {
+    "gate_mode": {
+      "type": "string",
+      "title": "Gate mode",
+      "description": "deny blocks a dispatch that names no model; warn notes it to stderr only; off disables the gate and the session-start rules",
+      "default": "deny"
+    }
+  }
+}

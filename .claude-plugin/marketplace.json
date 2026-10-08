@@ -1,0 +1,24 @@
+{
+  "name": "outring-cc",
+  "description": "Claude Code plugins by Vasya Aksyonov",
+  "owner": {
+    "name": "Vasya Aksyonov",
+    "url": "https://github.com/outring"
+  },
+  "plugins": [
+    {
+      "name": "subagent-cost-guard",
+      "description": "Blocks Agent and Workflow dispatches that would silently inherit opus or fable until they name a model tier and workflow effort",
+      "source": "./plugins/subagent-cost-guard",
+      "keywords": [
+        "cost",
+        "subagents",
+        "orchestration",
+        "workflow",
+        "hooks",
+        "model-selection"
+      ],
+      "category": "productivity"
+    }
+  ]
+}
