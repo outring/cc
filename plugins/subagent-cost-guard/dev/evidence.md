@@ -3,30 +3,40 @@
 ## Dispatches before and after the gate
 
 `measure-baseline.sh` over one user's transcripts. Rules moved into
-`CLAUDE.md` in late August; the gate shipped on 1 Sep 2026.
+`CLAUDE.md` in late August; the gate shipped on 1 Sep 2026 and the
+sonnet-first tiers (0.4.0) late on 3 Oct.
 
-| `Agent` calls | to 12 Aug | 12 Aug – 1 Sep | 1 Sep – 8 Sep |
-|---|---|---|---|
-| Total | 946 | 234 | 146 |
-| `haiku` | 13 (1.4%) | 7 (3.0%) | 22 (15.1%) |
-| `sonnet` | 11 (1.2%) | 137 (58.5%) | 97 (66.4%) |
-| `opus` | 5 (0.5%) | 27 (11.5%) | 12 (8.2%) |
-| No `model` | 917 (96.9%) | 63 (26.9%) | 15 (10.3%) |
-| …gateable | 861 (91.0%) | 62 (26.5%) | 6 (4.1%) |
-| …exempt (named agents) | 56 (5.9%) | 1 (0.4%) | 9 (6.2%) |
-| Gate denials observed | 0 | 0 | 11 (5 `Agent`, 6 `Workflow`) |
+| `Agent` calls | to 12 Aug | 12 Aug – 1 Sep | 1 – 8 Sep | 8 Sep – 4 Oct | 4 – 8 Oct |
+|---|---|---|---|---|---|
+| Total | 946 | 234 | 146 | 233 | 50 |
+| `haiku` | 13 (1.4%) | 7 (3.0%) | 22 (15.1%) | 51 (21.9%) | 15 (30.0%) |
+| `sonnet` | 11 (1.2%) | 137 (58.5%) | 97 (66.4%) | 108 (46.4%) | 29 (58.0%) |
+| `opus` | 5 (0.5%) | 27 (11.5%) | 12 (8.2%) | 20 (8.6%) | 3 (6.0%) |
+| `fable` | 0 | 0 | 0 | 4 (1.7%) | 0 |
+| Full model ID | 0 | 0 | 0 | 2 (0.9%) | 0 |
+| No `model` | 917 (96.9%) | 63 (26.9%) | 15 (10.3%) | 48 (20.6%) | 3 (6.0%) |
+| …gateable | 861 (91.0%) | 62 (26.5%) | 6 (4.1%) | 41 (17.6%) | 0 |
+| …exempt (named agents) | 56 (5.9%) | 1 (0.4%) | 9 (6.2%) | 7 (3.0%) | 3 (6.0%) |
+| Gate denials observed | 0 | 0 | 11 (5 `Agent`, 6 `Workflow`) | 45 (41 `Agent`, 4 `Workflow`) | 0 |
 
 ```sh
 bash dev/measure-baseline.sh 1          1786492800
 bash dev/measure-baseline.sh 1786492800 1788217200
 bash dev/measure-baseline.sh 1788217200 1788890400
+bash dev/measure-baseline.sh 1788890400 1791072000
+bash dev/measure-baseline.sh 1791072000 1791417600
 ```
 
 * The rules alone took gateable from 91.0% to 26.5%. The gate added 26.5% →
   4.1%
-* 5 of the 6 post-gate gateable calls pair by `tool_use_id` to a denial
-* Workflow `agent()` model literals: `opus` share rose 35% → 49%. The gate
-  only requires one tier per script, so workflow spend stays open
+* 46 of the 47 gateable calls since 1 Sep pair by `tool_use_id` to a
+  denial. A denied attempt still counts as a call without `model`, so the
+  17.6% are attempts that did not run
+* `haiku` rose 3.0% → 30.0% and `opus` fell 11.5% → 6.0%. The last column is
+  4 days
+* Workflow `agent()` model literals: `opus` share rose 35% → 49%, then 50% to
+  4 Oct. The gate only requires one tier per script, so workflow spend stays
+  open
 
 ## Placement: `CLAUDE.md` versus `SessionStart`
 

@@ -66,8 +66,10 @@ the session transcript.
 
 ## Effect
 
-On the author's transcripts, gateable untiered `Agent` calls fell from 26.5%
-to 4.1%; `haiku` rose from 3.0% to 15.1%. Data and A/B results: [`dev/evidence.md`](dev/evidence.md).
+On the author's transcripts from 1 Sep to 8 Oct 2026, the gate denied 46 of
+the 47 untiered `Agent` calls it targets. From before the gate to the 4 days
+to 8 Oct, `haiku` rose from 3.0% to 30.0% of `Agent` calls and `opus` fell
+from 11.5% to 6.0%. Data and A/B results: [`dev/evidence.md`](dev/evidence.md).
 
 Do not edit the skill `description` without re-running its A/B.
 Development: [`dev/README.md`](dev/README.md).
