@@ -22,8 +22,8 @@ MISSING="$FX/does-not-exist.jsonl"
 # Every run clears the mode and model env vars so a developer's shell cannot leak into a green run.
 CLEAN=(env -u SUBAGENT_COST_GUARD_MODE -u CLAUDE_PLUGIN_OPTION_GATE_MODE
            -u CLAUDE_CODE_SUBAGENT_MODEL -u CLAUDE_CODE_SUBAGENT_MODEL_FORCE
-           -u CLAUDE_CODE_EFFORT_LEVEL -u CLAUDE_CODE_SUBAGENT_EFFORT)
-run() { local json="$1"; shift; printf '%s' "$json" | "${CLEAN[@]}" "$@" bash "$GATE"; }
+           -u CLAUDE_CODE_EFFORT_LEVEL -u CLAUDE_CODE_SUBAGENT_EFFORT -u AI_AGENT)
+run() { local json="$1"; shift; printf '%s' "$json" | "${CLEAN[@]}" AI_AGENT=claude-code_2-1-318_agent "$@" bash "$GATE"; }
 reason() { run "$@" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecisionReason // ""'; }
 
 # aj <subagent_type|""> <model|"-" to omit> <transcript_path|""> [effort|"-" to omit]  — an Agent PreToolUse payload
@@ -125,6 +125,15 @@ assert_reason 'main record beats a later sidechain record' "$(aj Explore - "$FX/
 assert 'env opus beats session sonnet'  deny "$(aj Explore - "$FX/sonnet.jsonl")" 'CLAUDE_CODE_SUBAGENT_MODEL=opus'
 assert 'env haiku beats session opus'   noop "$(aj Explore - "$FX/opus.jsonl")"   'CLAUDE_CODE_SUBAGENT_MODEL=haiku'
 assert 'session sonnet does not exempt fork logic'  noop "$(aj fork - "$FX/opus.jsonl")"
+
+# --- Agent effort needs a build whose Agent tool takes it (2.1.292+, named by AI_AGENT) ---
+assert        'build 2.1.291: Agent effort not required'  noop "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
+assert        'build 2.1.292: Agent effort required'      deny "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-292_harness'
+assert        'build 2.2.0: Agent effort required'        deny "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-2-0_agent'
+assert        'no AI_AGENT: Agent effort not required'    noop "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT='
+assert        'old build: Agent model still checked'      deny "$(aj Explore - "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
+assert_no_reason 'old build: reason omits effort'         "$(aj Explore - "$FX/opus.jsonl")" 'Without `effort`' 'AI_AGENT=claude-code_2-1-291_agent'
+assert        'old build: Workflow effort still checked'  deny "$(wj "await agent('go',{model:'haiku'})" "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
 
 # --- Workflow: model and effort ---
 W_BOTH="await agent('go',{model:'haiku', effort:'low'})"

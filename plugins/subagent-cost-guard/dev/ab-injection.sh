@@ -110,7 +110,7 @@ for path in sorted(sys.argv[1:]):
     print('  SessionStart fired :', hooks or 'none')
     print('  tools              :', ', '.join(n for n, _ in tools))
     print('  skills             :', [i.get('skill') for n, i in tools if n == 'Skill'] or 'none')
-    print('  gate denials       :', sum('no `model`' in r for r in results))
+    print('  gate denials       :', sum('sets no `' in r for r in results))
     if agents:
         print('  first Agent        : type=%r model=%r effort=%r' % (agents[0].get('subagent_type'), agents[0].get('model'), agents[0].get('effort')))
         if len(agents) > 1:

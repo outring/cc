@@ -13,8 +13,9 @@
 #          cannot read is treated as expensive.
 # Exempt:  `fork` (model and effort are ignored there by design), named/plugin agents (their own
 #          definition sets both), CLAUDE_CODE_SUBAGENT_MODEL_FORCE (every subagent is pinned),
-#          and CLAUDE_CODE_EFFORT_LEVEL or CLAUDE_CODE_SUBAGENT_EFFORT (effort is pinned: no
-#          effort check; the model check stays).
+#          CLAUDE_CODE_EFFORT_LEVEL or CLAUDE_CODE_SUBAGENT_EFFORT (effort is pinned: no
+#          effort check; the model check stays), and, for Agent only, a build older than 2.1.292
+#          or not named by AI_AGENT (its Agent tool has no `effort`, so nothing could clear a deny).
 # Modes:   gate_mode / SUBAGENT_COST_GUARD_MODE unset|deny -> block; warn -> stderr note only; off -> no-op.
 # Fails open: any unexpected input, missing jq, or parse error emits {} and blocks nothing.
 set -u
@@ -82,6 +83,10 @@ else
 fi
 case "$(tier "$inherited")" in haiku|sonnet) cheap=1 ;; *) cheap=0 ;; esac
 effort_pinned="${CLAUDE_CODE_EFFORT_LEVEL:-${CLAUDE_CODE_SUBAGENT_EFFORT:-}}"
+agent_effort=""
+[[ "${AI_AGENT:-}" =~ ^claude-code_([0-9]+)-([0-9]+)-([0-9]+) ]] \
+  && [ $((10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]})) -ge 2001292 ] \
+  && agent_effort=1
 
 case "$tool" in
   Agent)
@@ -95,7 +100,7 @@ case "$tool" in
     [ "$cheap" = 1 ] && noop
     missing=""
     case "$model" in ""|inherit) missing='`model`' ;; esac   # any alias, [1m] variant or full id is a tier
-    [ -n "$effort" ] || [ -n "$effort_pinned" ] || missing="${missing:+$missing and }\`effort\`"
+    [ -n "$effort" ] || [ -n "$effort_pinned" ] || [ -z "$agent_effort" ] || missing="${missing:+$missing and }\`effort\`"
     [ -n "$missing" ] || noop
     how="sets no ${missing}"
     [ "$model" = inherit ] && how="${how} — \`inherit\` is the same as omitting it"

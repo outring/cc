@@ -62,6 +62,8 @@ the session transcript.
 * `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set
 * `CLAUDE_CODE_EFFORT_LEVEL` or `CLAUDE_CODE_SUBAGENT_EFFORT` set — the effort
   check is skipped; the model check stays
+* A missing `effort` on `Agent` from a Claude Code build older than `2.1.292`,
+  or one `AI_AGENT` does not name — its `Agent` tool has no `effort`
 * `subagent_type: "fork"`, and named or plugin agents (`feature-dev:*`)
 * Workflow resume by `scriptPath` or `name`
 * Bad input, missing `jq`, parse error — the hook fails open
