@@ -51,7 +51,7 @@ case "$tool" in Agent|Workflow) ;; *) noop ;; esac
 # What an untiered dispatch inherits: the configured subagent default, else the live session
 # model — the last assistant record in the transcript, so a mid-session /model switch counts.
 # A subagent's own dispatches carry that subagent's transcript, so they inherit its model, as
-# Claude Code does. Workflow agent() is assumed to resolve the same way; the docs do not say.
+# Claude Code does. Workflow agent() resolves model and effort the same way: dev/evidence.md.
 tier() {
   # The most expensive tier named wins, so a value naming two tiers fails toward deny.
   case "$1" in

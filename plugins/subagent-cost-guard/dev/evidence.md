@@ -140,3 +140,18 @@ not gated, so the rules alone moved `effort`: no rep was denied.
 
 A `PreToolUse` hook on `Agent` receives `tool_input.effort`: one live
 `claude -p` run with a hook that wrote its payload to a file.
+
+Workflow `agent()` resolves effort as a subagent does. Two live `claude -p
+--model sonnet --effort high` runs on `2.1.318`, one per column, four agents
+each; effort read from each agent's transcript:
+
+| `agent()` options | No env | `CLAUDE_CODE_SUBAGENT_EFFORT=low` |
+|---|---|---|
+| none (session `sonnet`) | `high` | `low` |
+| `model: 'sonnet'` | `high` | `low` |
+| `model: 'haiku'` | `medium` | `low` |
+| `model: 'haiku', effort: 'low'` | `low` | `low` |
+
+On the session model an `agent()` with no `effort` takes the session effort; on
+another model, that model's default. `CLAUDE_CODE_SUBAGENT_EFFORT` reaches
+workflow agents.
