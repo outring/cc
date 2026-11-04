@@ -28,7 +28,7 @@ Cheap models fan out, expensive models verify and synthesise — never the rever
 
 | Task shape | `subagent_type` | model | effort |
 |---|---|---|---|
-| Broad read-only sweep, locate code, "where is X" | `Explore` | `haiku`. Escalate to `sonnet` only after a `haiku` sweep has come back empty | `low` |
+| Broad read-only sweep, locate code, "where is X" | `Explore` | `haiku`. Escalate to `sonnet` only after a `haiku` sweep has come back empty | `low`; `medium` once escalated to `sonnet` |
 | Multi-step work needing edits or shell | `general-purpose` | `sonnet` | `medium` |
 | Design an approach, weigh trade-offs | `Plan` | `opus` | `high` |
 | Needs this conversation's full context | `fork` | inherits — `model` is ignored | omit |
