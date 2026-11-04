@@ -112,9 +112,9 @@ for path in sorted(sys.argv[1:]):
     print('  skills             :', [i.get('skill') for n, i in tools if n == 'Skill'] or 'none')
     print('  gate denials       :', sum('no `model`' in r for r in results))
     if agents:
-        print('  first Agent        : type=%r model=%r' % (agents[0].get('subagent_type'), agents[0].get('model')))
+        print('  first Agent        : type=%r model=%r effort=%r' % (agents[0].get('subagent_type'), agents[0].get('model'), agents[0].get('effort')))
         if len(agents) > 1:
-            print('  later Agent calls  :', [(a.get('subagent_type'), a.get('model')) for a in agents[1:]])
+            print('  later Agent calls  :', [(a.get('subagent_type'), a.get('model'), a.get('effort')) for a in agents[1:]])
     else:
         print('  first Agent        : NONE')
     seen = False
