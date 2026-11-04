@@ -121,3 +121,22 @@ tier:
 | 4. Fixed gating | 1 (5.0%) | 19 (95.0%) | 0 | 0 |
 
 `opus` or `fable` went from 10 of 81 calls to 0 of 20.
+
+## `effort` on `Agent`
+
+The `Agent` tool's own description tells Claude to set `effort` only when an
+instruction asks. Claude Code `2.1.318`, `ab-micro.sh`, 5 reps at `sonnet`, $1.58.
+
+| Arm | Prompt | `effort` set | Value |
+|---|---|---|---|
+| 0.4.0 | plain | 0/5 | — |
+| 0.4.0 | pressure | 0/5 | — |
+| 0.5.0 | plain | 5/5 | `high` |
+| 0.5.0 | pressure | 5/5 | `high` |
+
+Every rep read the skill and dispatched `general-purpose` at `sonnet`. `high`
+is the Deep tier the skill gives cross-file root cause. A `sonnet` session is
+not gated, so the rules alone moved `effort`: no rep was denied.
+
+A `PreToolUse` hook on `Agent` receives `tool_input.effort`: one live
+`claude -p` run with a hook that wrote its payload to a file.
