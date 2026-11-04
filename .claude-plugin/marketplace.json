@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "subagent-cost-guard",
-      "description": "Blocks Agent and Workflow dispatches that would silently inherit opus or fable until they name a model tier and workflow effort",
+      "description": "Blocks Agent and Workflow dispatches that would silently inherit opus or fable until they name a model tier and effort",
       "source": "./plugins/subagent-cost-guard",
       "keywords": [
         "cost",

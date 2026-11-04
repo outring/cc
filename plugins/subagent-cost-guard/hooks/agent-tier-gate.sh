@@ -5,14 +5,17 @@
 # documentation alone did not move it. Figures: dev/evidence.md.
 #
 # Gated:   Agent calls on generic types (Explore, general-purpose, Plan, claude, or unset)
-#          whose `model` is unset or "inherit"; Workflow scripts that call agent() with no
-#          `model:` other than 'inherit', or no `effort:`, anywhere.
+#          whose `model` is unset or "inherit", or whose `effort` is unset; Workflow scripts that
+#          call agent() with no `model:` other than 'inherit', or no `effort:`, anywhere.
 # Passes:  a dispatch that would inherit haiku or sonnet. What it inherits is
 #          CLAUDE_CODE_SUBAGENT_MODEL if set, else the live session model read from the
 #          transcript. The gate exists to stop silent inheritance of opus or fable; a model it
 #          cannot read is treated as expensive.
-# Exempt:  `fork` (model is ignored there by design), named/plugin agents (their own definition
-#          sets the model), and CLAUDE_CODE_SUBAGENT_MODEL_FORCE (every subagent is pinned).
+# Exempt:  `fork` (model and effort are ignored there by design), named/plugin agents (their own
+#          definition sets both), CLAUDE_CODE_SUBAGENT_MODEL_FORCE (every subagent is pinned),
+#          CLAUDE_CODE_EFFORT_LEVEL or CLAUDE_CODE_SUBAGENT_EFFORT (effort is pinned: no
+#          effort check; the model check stays), and, for Agent only, a build older than 2.1.292
+#          or not named by AI_AGENT (its Agent tool has no `effort`, so nothing could clear a deny).
 # Modes:   gate_mode / SUBAGENT_COST_GUARD_MODE unset|deny -> block; warn -> stderr note only; off -> no-op.
 # Fails open: any unexpected input, missing jq, or parse error emits {} and blocks nothing.
 set -u
@@ -49,7 +52,7 @@ case "$tool" in Agent|Workflow) ;; *) noop ;; esac
 # What an untiered dispatch inherits: the configured subagent default, else the live session
 # model — the last assistant record in the transcript, so a mid-session /model switch counts.
 # A subagent's own dispatches carry that subagent's transcript, so they inherit its model, as
-# Claude Code does. Workflow agent() is assumed to resolve the same way; the docs do not say.
+# Claude Code does. Workflow agent() resolves model and effort the same way: dev/evidence.md.
 tier() {
   # The most expensive tier named wins, so a value naming two tiers fails toward deny.
   case "$1" in
@@ -79,20 +82,33 @@ else
   fi
 fi
 case "$(tier "$inherited")" in haiku|sonnet) cheap=1 ;; *) cheap=0 ;; esac
+effort_pinned="${CLAUDE_CODE_EFFORT_LEVEL:-${CLAUDE_CODE_SUBAGENT_EFFORT:-}}"
+agent_effort=""
+[[ "${AI_AGENT:-}" =~ ^claude-code_([0-9]+)-([0-9]+)-([0-9]+) ]] \
+  && [ $((10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]})) -ge 2001292 ] \
+  && agent_effort=1
 
 case "$tool" in
   Agent)
     subtype="$(printf '%s' "$payload" | jq -r '.tool_input.subagent_type // ""' 2>/dev/null)"
     model="$(printf '%s' "$payload" | jq -r '.tool_input.model // ""' 2>/dev/null)"
-    case "$model" in ""|inherit) ;; *) noop ;; esac   # any alias, [1m] variant or full id is a tier
+    effort="$(printf '%s' "$payload" | jq -r '.tool_input.effort // ""' 2>/dev/null)"
     case "$subtype" in
       ""|Explore|general-purpose|Plan|claude) ;;
-      *) noop ;;   # fork, and every named or plugin agent, keep their own model
+      *) noop ;;   # fork, and every named or plugin agent, keep their own model and effort
     esac
     [ "$cheap" = 1 ] && noop
-    how="sets no \`model\`"
-    [ "$model" = inherit ] && how="sets no \`model\` tier — \`inherit\` is the same as omitting it"
-    stop "subagent-cost-guard: this Agent call ${how}, so it ${inherits}. Choose the tier deliberately — ${TIERS}. Re-send the same call with \`model\` set; see the \`subagent-cost-guard:orchestrating-agents\` skill for the agent-type table. Exempt: subagent_type \"fork\" and named plugin agents. ${SOFTEN}"
+    missing=""
+    case "$model" in ""|inherit) missing='`model`' ;; esac   # any alias, [1m] variant or full id is a tier
+    [ -n "$effort" ] || [ -n "$effort_pinned" ] || [ -z "$agent_effort" ] || missing="${missing:+$missing and }\`effort\`"
+    [ -n "$missing" ] || noop
+    how="sets no ${missing}"
+    [ "$model" = inherit ] && how="${how} — \`inherit\` is the same as omitting it"
+    why=""
+    case "$missing" in *model*) why=", so it ${inherits}" ;; esac
+    note=""
+    case "$missing" in *effort*) note="Without \`effort\` the subagent runs at the session effort on the session model, or at that model's saved or default level on another model. This plugin is the instruction that asks for \`effort\`, so re-send the call with it. " ;; esac
+    stop "subagent-cost-guard: this Agent call ${how}${why}. ${note}Choose the tier deliberately — ${TIERS}. Re-send the same call with ${missing} set; see the \`subagent-cost-guard:orchestrating-agents\` skill for the agent-type table. Exempt: subagent_type \"fork\" and named plugin agents. ${SOFTEN}"
     ;;
   Workflow)
     script="$(printf '%s' "$payload" | jq -r '.tool_input.script // ""' 2>/dev/null)"
@@ -106,9 +122,9 @@ case "$tool" in
     missing=""
     printf '%s' "$flat" | sed -E "s/model[[:space:]]*:[[:space:]]*['\"]inherit['\"]//g" \
       | grep -qE 'model[[:space:]]*:' || [ "$cheap" = 1 ] || missing='`model`'   # model: 'inherit' is an omission
-    printf '%s' "$flat" | grep -qE 'effort[[:space:]]*:' || missing="${missing:+$missing and }\`effort\`"
+    printf '%s' "$flat" | grep -qE 'effort[[:space:]]*:' || [ -n "$effort_pinned" ] || missing="${missing:+$missing and }\`effort\`"
     [ -n "$missing" ] || noop
-    stop "subagent-cost-guard: this workflow script calls agent() but sets no ${missing} anywhere. Without \`model\` every stage ${inherits}; without \`effort\` every stage inherits the session effort, and the Sonnet and Opus defaults differ. Give each agent() an explicit \`model\` and \`effort\` — ${TIERS}. ${SOFTEN}"
+    stop "subagent-cost-guard: this workflow script calls agent() but sets no ${missing} anywhere. Without \`model\` every stage ${inherits}; without \`effort\` a stage on the session model inherits the session effort, and a stage on another model gets that model's saved or default level. Give each agent() an explicit \`model\` and \`effort\` — ${TIERS}. ${SOFTEN}"
     ;;
 esac
 noop

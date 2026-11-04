@@ -1,7 +1,7 @@
 {
   "name": "subagent-cost-guard",
-  "version": "0.4.0",
-  "description": "Cuts subagent spend — an Agent or Workflow dispatch that would silently inherit opus or fable is blocked until it names its model tier and workflow effort, so grep sweeps stop billing at Opus rates",
+  "version": "0.5.0",
+  "description": "Cuts subagent spend — an Agent or Workflow dispatch that would silently inherit opus or fable is blocked until it names its model tier and effort, so grep sweeps stop billing at Opus rates",
   "author": {
     "name": "Vasya Aksyonov",
     "url": "https://github.com/outring"

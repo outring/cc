@@ -1,7 +1,7 @@
 # subagent-cost-guard
 
 Blocks an `Agent` or `Workflow` dispatch that would silently inherit an `opus`
-or `fable` model until it names a model tier and, for workflows, an effort.
+or `fable` model until it names a model tier and an effort.
 
 ```
 /plugin marketplace add outring/cc
@@ -44,10 +44,10 @@ Or in `~/.claude/settings.json`:
 
 ## Denied
 
-A dispatch with `model` unset or `inherit` whose inherited model is `opus`,
-`fable` or unreadable:
+A dispatch whose inherited model is `opus`, `fable` or unreadable:
 
-* `Agent` on `Explore`, `general-purpose`, `Plan`, `claude` or no type
+* `Agent` on `Explore`, `general-purpose`, `Plan`, `claude` or no type, with
+  `model` unset or `inherit`, or with no `effort`
 * `Workflow` inline script that calls `agent()` with no `model:` anywhere, or
   no `effort:` anywhere. One occurrence clears the whole script: the gate
   catches zero tiering, not partial
@@ -57,9 +57,13 @@ the session transcript.
 
 ## Never denied
 
-* An explicit `model` other than `inherit` — alias, `[1m]` variant or full ID
+* An explicit `model` other than `inherit` — alias, `[1m]` variant or full ID — together with an `effort`
 * An inherited `haiku` or `sonnet`
 * `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set
+* `CLAUDE_CODE_EFFORT_LEVEL` or `CLAUDE_CODE_SUBAGENT_EFFORT` set — the effort
+  check is skipped; the model check stays
+* A missing `effort` on `Agent` from a Claude Code build older than `2.1.292`,
+  or one `AI_AGENT` does not name — its `Agent` tool has no `effort`
 * `subagent_type: "fork"`, and named or plugin agents (`feature-dev:*`)
 * Workflow resume by `scriptPath` or `name`
 * Bad input, missing `jq`, parse error — the hook fails open

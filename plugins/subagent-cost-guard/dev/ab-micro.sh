@@ -108,7 +108,7 @@ for path in sorted(sys.argv[1:]):
     print('  tools              :', ', '.join(n for n, _ in tools))
     print('  skills             :', [i.get('skill') for n, i in tools if n == 'Skill'] or 'none')
     print('  gate denials       :', sum('sets no `' in r for r in results))   # the gate's own marker
-    print('  Agent calls        :', [(a.get('subagent_type'), a.get('model')) for a in agents] or 'NONE')
+    print('  Agent calls        :', [(a.get('subagent_type'), a.get('model'), a.get('effort')) for a in agents] or 'NONE')
     for f in flows:
         calls = re.findall(r'agent\([^)]*\)', f.get('script') or '', re.S)
         print('  Workflow agent()   :', [(bool(re.search(r'model\s*:', c)), bool(re.search(r'effort\s*:', c))) for c in calls] or 'no agent() calls')

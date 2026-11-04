@@ -21,15 +21,17 @@ MISSING="$FX/does-not-exist.jsonl"
 
 # Every run clears the mode and model env vars so a developer's shell cannot leak into a green run.
 CLEAN=(env -u SUBAGENT_COST_GUARD_MODE -u CLAUDE_PLUGIN_OPTION_GATE_MODE
-           -u CLAUDE_CODE_SUBAGENT_MODEL -u CLAUDE_CODE_SUBAGENT_MODEL_FORCE)
-run() { local json="$1"; shift; printf '%s' "$json" | "${CLEAN[@]}" "$@" bash "$GATE"; }
+           -u CLAUDE_CODE_SUBAGENT_MODEL -u CLAUDE_CODE_SUBAGENT_MODEL_FORCE
+           -u CLAUDE_CODE_EFFORT_LEVEL -u CLAUDE_CODE_SUBAGENT_EFFORT -u AI_AGENT)
+run() { local json="$1"; shift; printf '%s' "$json" | "${CLEAN[@]}" AI_AGENT=claude-code_2-1-318_agent "$@" bash "$GATE"; }
 reason() { run "$@" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecisionReason // ""'; }
 
-# aj <subagent_type|""> <model|"-" to omit> <transcript_path|"">  — an Agent PreToolUse payload
-aj() { jq -nc --arg st "$1" --arg m "$2" --arg tp "$3" '{hook_event_name:"PreToolUse",tool_name:"Agent"}
+# aj <subagent_type|""> <model|"-" to omit> <transcript_path|""> [effort|"-" to omit]  — an Agent PreToolUse payload
+aj() { jq -nc --arg st "$1" --arg m "$2" --arg tp "$3" --arg e "${4:--}" '{hook_event_name:"PreToolUse",tool_name:"Agent"}
         + (if $tp=="" then {} else {transcript_path:$tp} end)
         + {tool_input:({prompt:"x"} + (if $st=="" then {} else {subagent_type:$st} end)
-                                   + (if $m=="-" then {} else {model:$m} end))}'; }
+                                   + (if $m=="-" then {} else {model:$m} end)
+                                   + (if $e=="-" then {} else {effort:$e} end))}'; }
 # wj <script> <transcript_path|"">  — a Workflow PreToolUse payload
 wj() { jq -nc --arg s "$1" --arg tp "$2" '{hook_event_name:"PreToolUse",tool_name:"Workflow"}
         + (if $tp=="" then {} else {transcript_path:$tp} end) + {tool_input:{script:$s}}'; }
@@ -69,7 +71,7 @@ NOMODEL="$(aj Explore - "")"
 
 # --- no transcript, no env: the inherited model is unknown, so today's behaviour holds ---
 assert 'Agent Explore, no model'          deny "$NOMODEL"
-assert 'Agent Explore, model haiku'       noop "$(aj Explore haiku "")"
+assert 'Agent Explore, model haiku'       noop "$(aj Explore haiku "" low)"
 assert 'Agent general-purpose, no model'  deny "$(aj general-purpose - "")"
 assert 'Agent Plan, no model'             deny "$(aj Plan - "")"
 assert 'Agent claude, no model'           deny "$(aj claude - "")"
@@ -97,8 +99,8 @@ assert_warn 'plugin config mode=warn does not block'        "$NOMODEL" 'CLAUDE_P
 # --- the model value itself ---
 assert        'Agent model inherit is an omission'      deny "$(aj Explore inherit "")"
 assert_reason 'Agent model inherit names inherit'       "$(aj Explore inherit "")" 'inherit'
-assert 'Agent bracketed alias counts as tiered'  noop "$(aj Explore 'sonnet[1m]' "")"
-assert 'Agent full model id counts as tiered'    noop "$(aj general-purpose claude-opus-5-5 "")"
+assert 'Agent bracketed alias counts as tiered'  noop "$(aj Explore 'sonnet[1m]' "" low)"
+assert 'Agent full model id counts as tiered'    noop "$(aj general-purpose claude-opus-5-5 "" medium)"
 
 # --- CLAUDE_CODE_SUBAGENT_MODEL: what an untiered dispatch inherits when set ---
 assert        'subagent default haiku passes'        noop "$NOMODEL" 'CLAUDE_CODE_SUBAGENT_MODEL=haiku'
@@ -123,6 +125,15 @@ assert_reason 'main record beats a later sidechain record' "$(aj Explore - "$FX/
 assert 'env opus beats session sonnet'  deny "$(aj Explore - "$FX/sonnet.jsonl")" 'CLAUDE_CODE_SUBAGENT_MODEL=opus'
 assert 'env haiku beats session opus'   noop "$(aj Explore - "$FX/opus.jsonl")"   'CLAUDE_CODE_SUBAGENT_MODEL=haiku'
 assert 'session sonnet does not exempt fork logic'  noop "$(aj fork - "$FX/opus.jsonl")"
+
+# --- Agent effort needs a build whose Agent tool takes it (2.1.292+, named by AI_AGENT) ---
+assert        'build 2.1.291: Agent effort not required'  noop "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
+assert        'build 2.1.292: Agent effort required'      deny "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-292_harness'
+assert        'build 2.2.0: Agent effort required'        deny "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-2-0_agent'
+assert        'no AI_AGENT: Agent effort not required'    noop "$(aj Explore haiku "$FX/opus.jsonl")" 'AI_AGENT='
+assert        'old build: Agent model still checked'      deny "$(aj Explore - "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
+assert_no_reason 'old build: reason omits effort'         "$(aj Explore - "$FX/opus.jsonl")" 'Without `effort`' 'AI_AGENT=claude-code_2-1-291_agent'
+assert        'old build: Workflow effort still checked'  deny "$(wj "await agent('go',{model:'haiku'})" "$FX/opus.jsonl")" 'AI_AGENT=claude-code_2-1-291_agent'
 
 # --- Workflow: model and effort ---
 W_BOTH="await agent('go',{model:'haiku', effort:'low'})"
@@ -150,6 +161,30 @@ W_SPACED_INHERIT="await agent('go',{model : 'inherit', effort:'low'})"
 assert        'Workflow agent ( spaced call is gated'   deny "$(wj "$W_SPACED_CALL" "$FX/opus.jsonl")"
 assert        'Workflow model : and effort : spaced'    noop "$(wj "$W_SPACED_OPTS" "$FX/opus.jsonl")"
 assert_reason 'Workflow model : inherit spaced'         "$(wj "$W_SPACED_INHERIT" "$FX/opus.jsonl")" 'model'
+
+# --- Agent: model and effort ---
+assert        'Agent model, no effort, session opus'     deny "$(aj Explore haiku "$FX/opus.jsonl")"
+assert_reason 'Agent no effort names effort'             "$(aj Explore haiku "$FX/opus.jsonl")" 'effort'
+assert_no_reason 'Agent no effort does not blame model'  "$(aj Explore haiku "$FX/opus.jsonl")" 'sets no `model`'
+assert        'Agent model and effort, session opus'     noop "$(aj Explore haiku "$FX/opus.jsonl" low)"
+assert        'Agent effort, no model, session opus'     deny "$(aj Explore - "$FX/opus.jsonl" low)"
+assert_reason 'Agent no model names model'               "$(aj Explore - "$FX/opus.jsonl" low)" 'claude-opus-5-5'
+assert_no_reason 'Agent no model does not blame effort'  "$(aj Explore - "$FX/opus.jsonl" low)" 'sets no `model` and `effort`|Without `effort`'
+assert_reason 'Agent neither names both'                 "$(aj Explore - "$FX/opus.jsonl")" 'model.*effort|effort.*model'
+assert_reason 'Agent no effort says this plugin asks'    "$(aj Explore haiku "$FX/opus.jsonl")" 'This plugin is the instruction'
+assert        'Agent no effort, session sonnet'          noop "$(aj Explore - "$FX/sonnet.jsonl")"
+assert        'Agent no effort, session haiku'           noop "$(aj Explore haiku "$FX/haiku.jsonl")"
+assert        'Agent empty effort string'                deny "$(aj Explore haiku "$FX/opus.jsonl" "")"
+assert        'Agent fork, no effort'                    noop "$(aj fork - "$FX/opus.jsonl")"
+assert        'Agent plugin agent, no effort'            noop "$(aj feature-dev:code-reviewer - "$FX/opus.jsonl")"
+assert        'effort level pinned exempts Agent effort' noop "$(aj Explore haiku "$FX/opus.jsonl")" 'CLAUDE_CODE_EFFORT_LEVEL=high'
+assert        'subagent effort exempts Agent effort'     noop "$(aj Explore haiku "$FX/opus.jsonl")" 'CLAUDE_CODE_SUBAGENT_EFFORT=low'
+assert        'effort pinned, Agent model still checked' deny "$(aj Explore - "$FX/opus.jsonl")" 'CLAUDE_CODE_EFFORT_LEVEL=high'
+assert_no_reason 'effort pinned, reason omits effort'    "$(aj Explore - "$FX/opus.jsonl")" 'Without `effort`' 'CLAUDE_CODE_SUBAGENT_EFFORT=low'
+assert        'effort level pinned exempts Workflow effort' noop "$(wj "$W_MODEL" "$FX/opus.jsonl")" 'CLAUDE_CODE_EFFORT_LEVEL=high'
+assert        'subagent effort exempts Workflow effort'  noop "$(wj "$W_MODEL" "$FX/opus.jsonl")" 'CLAUDE_CODE_SUBAGENT_EFFORT=low'
+assert        'effort pinned, Workflow model still checked' deny "$(wj "$W_NONE" "$FX/opus.jsonl")" 'CLAUDE_CODE_SUBAGENT_EFFORT=low'
+assert_warn   'Agent no effort, warn mode does not block' "$(aj Explore haiku "$FX/opus.jsonl")" 'SUBAGENT_COST_GUARD_MODE=warn'
 
 # --- SessionStart context hook ---
 CTX="$ROOT/hooks/session-start-context.sh"
