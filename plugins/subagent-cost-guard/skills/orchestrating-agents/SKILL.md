@@ -12,34 +12,33 @@ Cheap models fan out, expensive models verify and synthesise — never the rever
 ## Every dispatch names its tier
 
 * A dispatch with no stated tier is unfinished
-* Name the agent type and the model on the same line as the reason, before the prompt
+* Name the agent type, the model and the effort on the same line as the reason, before the prompt
 * `Explore` at `haiku` — mechanical sweep over known-shape files
 * Omitting `model`, or `model: inherit`, inherits `CLAUDE_CODE_SUBAGENT_MODEL` if set, else the session model — on most sessions `opus` or `fable`
 * Use the aliases `haiku` / `sonnet` / `opus` / `fable`; each tracks the newest model of its tier. A full ID pins a version
 
 ## Parameter shape
 
-Three asymmetries that catch every author once:
-
-* The `Agent` tool takes `model` only — it has **no** `effort` parameter
-* Workflow `agent()` takes both `model` and `effort`; a script that sets neither anywhere is denied
-* `subagent_type: "fork"` ignores `model` entirely — do not pass it
+* `Agent` and workflow `agent()` both take `model` and `effort`
+* The `Agent` tool's `effort` description waits for an instruction that asks for it. This skill is that instruction: set both on every generic dispatch
+* `subagent_type: "fork"` ignores both — pass neither
+* Named or plugin agents: omit both
 
 ## Agent type
 
-| Task shape | `subagent_type` | model |
-|---|---|---|
-| Broad read-only sweep, locate code, "where is X" | `Explore` | `haiku`. Escalate to `sonnet` only after a `haiku` sweep has come back empty |
-| Multi-step work needing edits or shell | `general-purpose` | `sonnet` |
-| Design an approach, weigh trade-offs | `Plan` | `opus` |
-| Needs this conversation's full context | `fork` | inherits — `model` is ignored |
-| Named or plugin agent (`feature-dev:*`, `code-review`, …) | that type | omit — the agent definition sets it |
+| Task shape | `subagent_type` | model | effort |
+|---|---|---|---|
+| Broad read-only sweep, locate code, "where is X" | `Explore` | `haiku`. Escalate to `sonnet` only after a `haiku` sweep has come back empty | `low` |
+| Multi-step work needing edits or shell | `general-purpose` | `sonnet` | `medium` |
+| Design an approach, weigh trade-offs | `Plan` | `opus` | `high` |
+| Needs this conversation's full context | `fork` | inherits — `model` is ignored | omit |
+| Named or plugin agent (`feature-dev:*`, `code-review`, …) | that type | omit — the agent definition sets it | omit |
 
 * `Explore` reads excerpts, not whole files — it locates code, it does not review or audit it
 
 ## Model and effort tiers
 
-The default tier is `sonnet`. `haiku` is for mechanical work and `opus` for judgement — not for doing the work twice as well. Set `model` and `effort` per `agent()` call, not per workflow.
+The default tier is `sonnet`. `haiku` is for mechanical work and `opus` for judgement — not for doing the work twice as well. Set `model` and `effort` per `Agent` call and per `agent()` call, not per workflow.
 
 | Stage | model | effort | Use for |
 |---|---|---|---|
@@ -66,10 +65,10 @@ Mechanical or deterministic work — counting, filtering, dedup, formatting, ren
 | No `model` on the call, or `model: inherit` | Name the tier; what is inherited is usually the expensive one |
 | `opus` because the task "feels hard" or spans files | `sonnet` at `high`. `opus` verifies or synthesises; it does not work harder |
 | `general-purpose` for a read-only search | `Explore` |
-| `model` passed to a `fork` | Drop it — forks always inherit |
+| `model` or `effort` passed to a `fork` | Drop it — forks always inherit |
 | `model` forced onto a named plugin agent | Omit it — its definition already chose |
 | The Workflow docstring's "default to omitting `model` … almost always correct" | That inherits the session model. Set `model` and `effort` on every `agent()` |
-| No `effort` on a workflow `agent()` | It inherits the session effort; the gate denies the script |
+| No `effort` on an `Agent` call or a workflow `agent()` | On the session model it inherits the session effort; on another model it gets that model's saved or default level (`medium` on Opus, Sonnet and Haiku 5.5). The gate denies it on an opus or fable session |
 | `sonnet` at `low` for a subagent | `medium` or above — at `low` it may skip verification or stop to ask, and a subagent cannot ask |
 | A dated model ID (`claude-haiku-4-5-20251001`) | The alias; it tracks the tier's current model |
 | One agent per list item for a mechanical sweep | One script, run once |
